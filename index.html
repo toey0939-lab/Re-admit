@@ -115,8 +115,12 @@
                             <label class="block text-[11px] text-slate-400 mb-1 ml-1">วันที่จำหน่าย *</label>
                             <input type="date" id="disDate" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm">
                         </div>
-                        <input type="text" id="hn" placeholder="เลข HN *" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm">
-                        <input type="text" id="name" placeholder="ชื่อ-นามสกุล ผู้ป่วย *" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm">
+                        <input type="text" id="hn" list="hnSuggestions" placeholder="เลข HN *" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm">
+                        <datalist id="hnSuggestions"></datalist>
+
+                        <input type="text" id="name" list="nameSuggestions" placeholder="ชื่อ-นามสกุล ผู้ป่วย *" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm">
+                        <datalist id="nameSuggestions"></datalist>
+
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1 ml-1">ประเภทการจำหน่าย</label>
                             <select id="disType" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm">
@@ -230,6 +234,8 @@
 
         // ฟิลด์ที่จะใช้ระบบ Smart Suggestion
         const suggestFields = {
+            hn: 'hnSuggestions',
+            name: 'nameSuggestions',
             dxBefore: 'dxSuggestions',
             comorb: 'comorbSuggestions',
             clinic: 'clinicSuggestions',
@@ -309,6 +315,8 @@
         function updateSuggestions() {
             Object.keys(suggestFields).forEach(fieldKey => {
                 const datalist = document.getElementById(suggestFields[fieldKey]);
+                if (!datalist) return;
+                
                 // ดึงค่าที่ไม่ซ้ำกันจาก records
                 const values = [...new Set(records.map(r => r[fieldKey]).filter(v => v && v.length > 0))];
                 
