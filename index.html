@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Discharge AI Assistant (Focus Readmit)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
+        
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f8fafc;
+            color: #334155;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .card { 
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.5rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade { animation: fadeIn 0.3s ease-out forwards; }
+        
+        input, select, textarea, button {
+            min-height: 48px;
+        }
+        
+        .filter-select {
+            min-height: 36px;
+            height: 36px;
+            font-size: 12px;
+            padding: 0 8px;
+            border-radius: 8px;
+        }
+
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        input::-webkit-calendar-picker-indicator {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-10">
+
+    <!-- Navigation Bar -->
+    <nav class="sticky top-0 z-50 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-lg font-bold bg-gradient-to-r from-orange-600 to-rose-600 bg-clip-text text-transparent">
+                <i class="fa-solid fa-hospital-user mr-1"></i>Discharge Monitor
+            </h1>
+            <div class="flex items-center space-x-2">
+                <span id="syncStatus" class="text-slate-400 text-[10px] font-bold uppercase tracking-tighter">
+                    <i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Connecting...
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto p-4 space-y-4">
+        
+        <!-- Dashboard Statistics - Focused on Readmit -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="card p-4 flex flex-col items-center justify-center text-center border-orange-100 bg-orange-50/20">
+                <p class="text-[10px] text-orange-500 uppercase font-bold tracking-wider mb-1">เคส Re-admit ทั้งหมด (ตามตัวกรอง)</p>
+                <div class="flex items-baseline space-x-1">
+                    <p id="totalReadmit" class="text-3xl font-bold text-orange-600">-</p>
+                    <span class="text-xs text-orange-400 font-medium">ราย</span>
+                </div>
+            </div>
+            <div class="card p-4 flex flex-col items-center justify-center text-center">
+                <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">จำหน่ายทุเลาทั้งหมด</p>
+                <p id="totalDischarge" class="text-xl font-bold text-sky-600">-</p>
+            </div>
+            <div class="card p-4 flex flex-col items-center justify-center text-center">
+                <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Refer back</p>
+                <p id="totalRefer" class="text-xl font-bold text-indigo-600">-</p>
+            </div>
+        </div>
+
+        <!-- Data Entry Form -->
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+            <h2 class="text-md font-bold mb-5 text-slate-700 flex items-center">
+                <i class="fa-solid fa-pen-to-square mr-2 text-orange-500"></i>บันทึกข้อมูลการจำหน่าย
+            </h2>
+            
+            <div class="space-y-6">
+                <!-- Section 1: Patient Info -->
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1 ml-1 font-bold">วันที่จำหน่าย *</label>
+                            <input type="date" id="disDate" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-orange-500/20 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1 ml-1 font-bold">เลข HN *</label>
+                            <input type="text" id="hn" list="hnList" placeholder="ค้นหาหรือพิมพ์เลข HN" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-orange-500/20 text-sm">
+                            <datalist id="hnList"></datalist>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[11px] text-slate-400 mb-1 ml-1 font-bold">ชื่อ-นามสกุล ผู้ป่วย *</label>
+                            <input type="text" id="name" list="nameList" placeholder="ชื่อ-นามสกุล" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-orange-500/20 text-sm">
+                            <datalist id="nameList"></datalist>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[11px] text-slate-400 mb-1 ml-1 font-bold">ประเภทการจำหน่าย</label>
+                            <select id="disType" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-orange-500/20 text-sm bg-slate-50">
+                                <option value="จำหน่ายทุเลา">จำหน่ายทุเลา</option>
+                                <option value="Refer back">Refer back</option>
+                                <option value="ผู้ป่วยขอปฏิเสธการรักษา">ผู้ป่วยขอปฏิเสธการรักษา</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Diagnosis & Appointment -->
+                <div class="space-y-4 border-t border-slate-100 pt-4">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1 ml-1 font-bold">การวินิจฉัยหลัก (Main Dx) *</label>
+                            <input type="text" id="dxBefore" list="dxList" placeholder="ระบุการวินิจฉัย" class="w-full px-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-orange-500/20 text-sm">
+                            <datalist id="dxList"></datalist>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                            <div>
+                                <label class="block text-[11px] text-slate-500 mb-1 ml-1 font-bold italic">วันนัดครั้งต่อไป</label>
+                                <input type="date" id="appointDate" class="w-full px-4 rounded-xl border border-white outline-none focus:ring-2 focus:ring-orange-500/20 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-500 mb-1 ml-1 font-bold italic">คลินิกที่นัด</label>
+                                <input type="text" id="appointClinic" list="clinicList" placeholder="ระบุชื่อคลินิก" class="w-full px-4 rounded-xl border border-white outline-none focus:ring-2 focus:ring-orange-500/20 text-sm">
+                                <datalist id="clinicList"></datalist>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Readmit Info -->
+                <div class="space-y-4 border-t border-slate-100 pt-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold text-orange-600 uppercase tracking-wide">ระบุข้อมูลหากเป็นเคส Re-admit</h3>
+                        <span class="text-[10px] text-slate-300 font-bold italic">ภายใน 28 วัน</span>
+                    </div>
+                    <div class="space-y-3 p-4 bg-orange-50/40 rounded-2xl border border-orange-100">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] text-orange-600 mb-1 ml-1 font-bold">วันที่ Re-admit</label>
+                                <input type="date" id="readmitDate" class="w-full px-4 rounded-xl border border-white outline-none focus:ring-2 focus:ring-orange-500/20 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-orange-600 mb-1 ml-1 font-bold">วอร์ดที่รับ</label>
+                                <input type="text" id="ward" list="wardList" placeholder="เช่น อายุรกรรมชาย" class="w-full px-4 rounded-xl border border-white outline-none focus:ring-2 focus:ring-orange-500/20 text-sm">
+                                <datalist id="wardList"></datalist>
+                            </div>
+                        </div>
+                        <textarea id="dxReadmit" rows="2" placeholder="ระบุอาการสำคัญหรือ Dx ที่ Re-admit..." class="w-full px-4 py-3 rounded-xl border border-white outline-none focus:ring-2 focus:ring-orange-500/20 text-sm"></textarea>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <button onclick="addItem()" id="btnSubmit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center">
+                    <span id="btnText">บันทึกข้อมูลลงฐานข้อมูล</span>
+                    <i id="btnLoading" class="fa-solid fa-circle-notch fa-spin hidden ml-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- History & Filtering -->
+        <div class="space-y-4 pt-4">
+            <div class="card p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase"><i class="fa-solid fa-filter mr-1"></i> ตัวกรองเดือน</h3>
+                    <button onclick="resetFilters()" class="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">ปัจจุบัน</button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="flex gap-1">
+                        <select id="startMonth" class="filter-select w-full border border-slate-200 bg-white"></select>
+                        <select id="startYear" class="filter-select w-full border border-slate-200 bg-white"></select>
+                    </div>
+                    <div class="flex gap-1">
+                        <select id="endMonth" class="filter-select w-full border border-slate-200 bg-white"></select>
+                        <select id="endYear" class="filter-select w-full border border-slate-200 bg-white"></select>
+                    </div>
+                </div>
+                <button onclick="render()" class="w-full bg-slate-100 text-slate-600 py-2 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-200 transition-colors">
+                    กรองข้อมูลและคำนวณสถิติ
+                </button>
+            </div>
+
+            <div class="flex justify-between items-center px-1">
+                <h2 class="text-sm font-bold text-slate-500">ประวัติ (เรียงตามวันจำหน่าย)</h2>
+                <button onclick="fetchData()" class="text-[10px] text-sky-600 font-bold uppercase">
+                    <i class="fa-solid fa-rotate mr-1"></i>รีเฟรช
+                </button>
+            </div>
+            
+            <div id="recordList" class="space-y-3">
+                <div class="card p-4 h-24 loading-shimmer opacity-40"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Alert Toast Container -->
+    <div id="alertContainer" class="fixed top-5 left-4 right-4 z-[110] pointer-events-none flex flex-col space-y-2"></div>
+
+    <script>
+        const CONFIG = {
+            scriptUrl: "https://script.google.com/macros/s/AKfycbwd1YAHYjfNzsqxoanvaXdLUIx78sSn2-nC7NubOnDtooaWOwtRPvlzQZgTJT-AbS0/exec" // <<< วางลิงก์ Google Web App URL ตรงนี้
+        };
+
+        let records = [];
+        const monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+        async function fetchData() {
+            if (!CONFIG.scriptUrl) {
+                document.getElementById('recordList').innerHTML = `<div class="p-10 text-center card bg-white text-xs text-slate-400">กรุณาตั้งค่า Web App URL ในโค้ด</div>`;
+                document.getElementById('syncStatus').innerHTML = 'OFFLINE';
+                return;
+            }
+
+            try {
+                document.getElementById('syncStatus').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Syncing...';
+                const response = await fetch(CONFIG.scriptUrl + "?action=read");
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    records = result.data;
+                    updateSmartSuggestions();
+                    render();
+                    document.getElementById('syncStatus').innerHTML = '<i class="fa-solid fa-circle mr-1 text-emerald-500"></i>LIVE';
+                }
+            } catch (error) {
+                document.getElementById('syncStatus').innerHTML = '<span class="text-rose-500 font-bold uppercase">ERROR</span>';
+                showAlert('ไม่สามารถโหลดข้อมูลได้', 'error');
+            }
+        }
+
+        function updateSmartSuggestions() {
+            const listConfigs = { hnList: 'hn', nameList: 'name', dxList: 'dxBefore', clinicList: 'appointClinic', wardList: 'ward' };
+            for (const [listId, fieldName] of Object.entries(listConfigs)) {
+                const datalist = document.getElementById(listId);
+                if (datalist) {
+                    const uniqueValues = [...new Set(records.map(r => r[fieldName]).filter(val => val))];
+                    datalist.innerHTML = uniqueValues.map(v => `<option value="${v}">`).join('');
+                }
+            }
+        }
+
+        async function addItem() {
+            if (!CONFIG.scriptUrl) return showAlert('กรุณาตั้งค่า URL ก่อนบันทึก', 'error');
+
+            const data = {
+                disDate: document.getElementById('disDate').value,
+                hn: document.getElementById('hn').value.trim(),
+                name: document.getElementById('name').value.trim(),
+                disType: document.getElementById('disType').value,
+                dxBefore: document.getElementById('dxBefore').value.trim(),
+                comorb: '', // เว้นไว้ตามฟิลด์เดิมใน Sheet
+                appointDate: document.getElementById('appointDate').value,
+                appointClinic: document.getElementById('appointClinic').value.trim(),
+                readmitDate: document.getElementById('readmitDate').value,
+                ward: document.getElementById('ward').value.trim(),
+                dxReadmit: document.getElementById('dxReadmit').value.trim()
+            };
+
+            if (!data.disDate || !data.hn || !data.name || !data.dxBefore) {
+                return showAlert('กรุณากรอกข้อมูล วันที่, HN, ชื่อ และ Dx หลัก', 'error');
+            }
+
+            const btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            document.getElementById('btnLoading').classList.remove('hidden');
+            document.getElementById('btnText').innerText = 'กำลังส่งข้อมูล...';
+
+            try {
+                await fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
+                showAlert('บันทึกข้อมูลสำเร็จ', 'success');
+                resetForm();
+                setTimeout(fetchData, 1500);
+            } catch (e) {
+                showAlert('บันทึกไม่สำเร็จ', 'error');
+            } finally {
+                btn.disabled = false;
+                document.getElementById('btnLoading').classList.add('hidden');
+                document.getElementById('btnText').innerText = 'บันทึกข้อมูลลงฐานข้อมูล';
+            }
+        }
+
+        function render() {
+            const list = document.getElementById('recordList');
+            list.innerHTML = '';
+            
+            const sM = parseInt(document.getElementById('startMonth').value);
+            const sY = parseInt(document.getElementById('startYear').value);
+            const eM = parseInt(document.getElementById('endMonth').value);
+            const eY = parseInt(document.getElementById('endYear').value);
+            const startDate = new Date(sY, sM, 1);
+            const endDate = new Date(eY, eM + 1, 0, 23, 59, 59);
+
+            // 1. กรองตามวัน
+            // 2. เรียงลำดับตามวันที่จำหน่าย (ใหม่ไปเก่า)
+            const filtered = records
+                .filter(r => {
+                    const d = new Date(r.disDate);
+                    return d >= startDate && d <= endDate;
+                })
+                .sort((a, b) => new Date(b.disDate) - new Date(a.disDate));
+
+            let readmitCount = 0;
+            let disCount = 0;
+            let referCount = 0;
+
+            filtered.forEach((r) => {
+                if (r.readmitDate) readmitCount++;
+                if (r.disType === 'จำหน่ายทุเลา') disCount++;
+                if (r.disType === 'Refer back') referCount++;
+
+                const isReadmit = !!r.readmitDate;
+                const card = document.createElement('div');
+                card.className = `bg-white p-4 rounded-2xl border ${isReadmit ? 'border-orange-200 bg-orange-50/10' : 'border-slate-100'} shadow-sm space-y-2 animate-fade`;
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase">${formatThaiDateShort(r.disDate)}</span>
+                            <div class="font-bold text-slate-800 text-sm">${r.hn} : ${r.name}</div>
+                        </div>
+                        <span class="text-[9px] px-2 py-1 rounded-lg ${isReadmit ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-500'} font-bold">${r.disType}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-600">Dx: ${r.dxBefore}</div>
+                    ${isReadmit ? `
+                        <div class="p-3 bg-white/60 border border-orange-100 rounded-xl">
+                            <div class="text-[10px] text-orange-600 font-bold uppercase"><i class="fa-solid fa-rotate-left mr-1"></i> RE-ADMIT (Ward: ${r.ward || '-'})</div>
+                            <div class="text-[11px] text-orange-700 italic">${formatThaiDateShort(r.readmitDate)} - ${r.dxReadmit || 'ไม่ได้ระบุอาการ'}</div>
+                        </div>
+                    ` : ''}
+                `;
+                list.appendChild(card);
+            });
+
+            if (filtered.length === 0) list.innerHTML = `<div class="p-10 text-center text-slate-400 text-xs italic">ไม่พบข้อมูล</div>`;
+
+            document.getElementById('totalReadmit').innerText = readmitCount;
+            document.getElementById('totalDischarge').innerText = disCount;
+            document.getElementById('totalRefer').innerText = referCount;
+        }
+
+        function formatThaiDateShort(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+        }
+
+        function initFilterOptions() {
+            const now = new Date();
+            ['startMonth', 'endMonth'].forEach(id => {
+                const select = document.getElementById(id);
+                monthNames.forEach((m, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = i; opt.innerText = m;
+                    select.appendChild(opt);
+                });
+            });
+            ['startYear', 'endYear'].forEach(id => {
+                const select = document.getElementById(id);
+                for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
+                    const opt = document.createElement('option');
+                    opt.value = y; opt.innerText = y + 543;
+                    select.appendChild(opt);
+                }
+            });
+            resetFilters();
+        }
+
+        function resetFilters() {
+            const now = new Date();
+            document.getElementById('startMonth').value = now.getMonth();
+            document.getElementById('startYear').value = now.getFullYear();
+            document.getElementById('endMonth').value = now.getMonth();
+            document.getElementById('endYear').value = now.getFullYear();
+            if (records.length > 0) render();
+        }
+
+        function resetForm() {
+            const fields = ['hn', 'name', 'dxBefore', 'appointDate', 'appointClinic', 'readmitDate', 'ward', 'dxReadmit'];
+            fields.forEach(id => document.getElementById(id).value = '');
+            document.getElementById('disDate').valueAsDate = new Date();
+        }
+
+        function showAlert(msg, type) {
+            const container = document.getElementById('alertContainer');
+            const div = document.createElement('div');
+            div.className = `p-4 rounded-2xl shadow-xl text-white text-center font-bold text-sm animate-fade ${type === 'success' ? 'bg-sky-500' : 'bg-rose-500'}`;
+            div.innerText = msg;
+            container.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        window.onload = () => {
+            initFilterOptions();
+            document.getElementById('disDate').valueAsDate = new Date();
+            fetchData();
+        };
+    </script>
+</body>
+</html>
